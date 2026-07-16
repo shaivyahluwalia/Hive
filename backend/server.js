@@ -1,0 +1,171 @@
+import express from 'express';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
+import { connectDB, dbMode } from './config/db.js';
+import { dbService } from './models/dbService.js';
+import { csrfProtection } from './middleware/csrf.js';
+
+// Load route modules
+import authRouter from './routes/auth.js';
+import jobsRouter from './routes/jobs.js';
+import marketplaceRouter from './routes/marketplace.js';
+import chatRouter from './routes/chat.js';
+import adminRouter from './routes/admin.js';
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Connect to Database (MongoDB or JSON file fallback)
+await connectDB();
+
+// ----------------------------------------------------
+// Middleware Setup
+// ----------------------------------------------------
+
+// CORS configuration supporting credentials from local frontend
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  credentials: true
+}));
+
+app.use(express.json());
+app.use(cookieParser());
+
+// Security Headers Middleware
+app.use((req, res, next) => {
+  // Prevent content type sniffing
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  // Prevent clickjacking
+  res.setHeader('X-Frame-Options', 'DENY');
+  // Custom permission policy to disable features we don't use
+  res.setHeader('Permission-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
+
+// ----------------------------------------------------
+// Router Registrations
+// ----------------------------------------------------
+
+// Auth routes (includes GET /csrf which is exempt from CSRF validation checks)
+app.use('/api/auth', authRouter);
+
+// Apply CSRF validation to state-changing operations
+app.use('/api/jobs', csrfProtection, jobsRouter);
+app.use('/api/marketplace', csrfProtection, marketplaceRouter);
+app.use('/api/chat', csrfProtection, chatRouter);
+app.use('/api/admin', csrfProtection, adminRouter);
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled Server Error:', err.message);
+  // Fail-safe generic response to prevent stack/source leakages
+  res.status(500).json({ error: 'An unexpected error occurred on the server.' });
+});
+
+// ----------------------------------------------------
+// Seed Default Platform Accounts
+// ----------------------------------------------------
+const seedPlatformAccounts = async () => {
+  try {
+    // 1. Seed AI Employees
+    await dbService.seedData();
+
+    // 2. Seed Admin account
+    const adminEmail = 'admin@hive.com';
+    const adminUser = await dbService.getUserByEmail(adminEmail);
+    if (!adminUser) {
+      const adminPass = await bcrypt.hash('password123', 10);
+      await dbService.createUser({
+        username: 'Hive Administrator',
+        email: adminEmail,
+        password: adminPass,
+        role: 'Admin',
+        avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Admin'
+      });
+      console.log('Admin account seeded: admin@hive.com / password123');
+    }
+
+    // 3. Seed Mock Human Workers
+    const workers = await dbService.getUsers({ role: 'Worker' });
+    if (workers.length === 0) {
+      const mockWorkers = [
+        {
+          username: 'Alice Vance',
+          email: 'alice@hive.com',
+          skills: ['React', 'Next.js', 'Node.js', 'TypeScript', 'Tailwind CSS'],
+          location: 'San Francisco, CA (Remote)',
+          hourlyPrice: 75,
+          experience: 'Senior Developer',
+          availability: 'Available',
+          rating: 4.9,
+          reviews: [
+            { reviewer: 'TechCorp CEO', rating: 5, comment: 'Alice built our MVP landing page in 3 days. Clean Next.js code!' },
+            { reviewer: 'BuildFast Inc', rating: 4.8, comment: 'Very professional developer, highly recommended.' }
+          ]
+        },
+        {
+          username: 'Bob Miller',
+          email: 'bob@hive.com',
+          skills: ['Figma', 'UI/UX Design', 'Branding', 'Vector Illustration', 'Framer'],
+          location: 'New York, NY (Remote)',
+          hourlyPrice: 55,
+          experience: 'Mid-level Designer',
+          availability: 'Available',
+          rating: 4.8,
+          reviews: [
+            { reviewer: 'Innovate LLC', rating: 5, comment: 'Designed a beautiful dashboard layout with amazing purple colors.' }
+          ]
+        },
+        {
+          username: 'Charlie Writing',
+          email: 'charlie@hive.com',
+          skills: ['SEO Copywriting', 'Technical Writing', 'Blog Content', 'Copy Editing'],
+          location: 'Austin, TX (Remote)',
+          hourlyPrice: 40,
+          experience: 'Senior Writer',
+          availability: 'Available',
+          rating: 4.7,
+          reviews: [
+            { reviewer: 'SaaS Pulse', rating: 4, comment: 'Charlie wrote high-quality blog posts that ranked #1 on Google.' }
+          ]
+        },
+        {
+          username: 'Diana Marketer',
+          email: 'diana@hive.com',
+          skills: ['Google Ads', 'SEO Optimization', 'Social Media Strategy', 'Growth Marketing'],
+          location: 'London, UK (Remote)',
+          hourlyPrice: 60,
+          experience: 'Mid-level Marketer',
+          availability: 'Busy',
+          rating: 4.9,
+          reviews: [
+            { reviewer: 'WebScale', rating: 5, comment: 'Diana tripled our signups using targeted PPC campaigns.' }
+          ]
+        }
+      ];
+
+      for (const w of mockWorkers) {
+        const hashedPass = await bcrypt.hash('password123', 10);
+        await dbService.createUser({
+          ...w,
+          password: hashedPass,
+          role: 'Worker',
+          avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(w.username)}`
+        });
+      }
+      console.log('Mock Human Workers seeded: [alice, bob, charlie, diana]@hive.com / password123');
+    }
+  } catch (error) {
+    console.error('Seeding error:', error);
+  }
+};
+
+// Start Server listening strictly on Localhost loopback interface for testing security
+app.listen(PORT, '127.0.0.1', async () => {
+  console.log(`Hive Backend Server listening on http://127.0.0.1:${PORT} [Mode: ${dbMode}]`);
+  await seedPlatformAccounts();
+});
