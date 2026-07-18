@@ -27,12 +27,15 @@ await connectDB();
 // ----------------------------------------------------
 
 // CORS configuration supporting credentials from local frontend
+
 app.use(cors({
   origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
   credentials: true
 }));
 
-app.use(express.json());
+// BOOST PAYLOAD LIMITS FOR BASE64 STRINGS
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
 
 // Security Headers Middleware
@@ -41,8 +44,9 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Prevent clickjacking
   res.setHeader('X-Frame-Options', 'DENY');
-  // Custom permission policy to disable features we don't use
-  res.setHeader('Permission-Policy', 'camera=(), microphone=(), geolocation=()');
+  
+  // ALLOW MICROPHONE ACCESS ON LOCALHOST FOR DEVELOPMENT
+  res.setHeader('Permission-Policy', 'camera=(), microphone=(self "http://localhost:3000" "http://127.0.0.1:3000"), geolocation=()');
   next();
 });
 

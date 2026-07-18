@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { MessageSquare, X, Send, Cpu, Sparkles, ArrowRight } from 'lucide-react';
+import { MessageSquare, X, Send, Cpu, Sparkles, ArrowRight, Mic, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 
@@ -27,13 +27,155 @@ export default function FloatingChat() {
       text: "Hi! I am the Hive Recommendation Engine. Describe the task you need done (e.g. 'I need a logo designed' or 'I need someone to write copywriting emails'), and I will suggest the best fit!"
     }
   ]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(''); 
+  const [language, setLanguage] = useState('en-IN');
   const [loading, setLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunks = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isOpen]);
+
+  // Add these references at the top of your component body with the other states/refs
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const leftChannel = useRef<Float32Array[]>([]);
+  const recordingLength = useRef<number>(0);
+
+  const startRecording = async () => {
+    try {
+      console.log("Requesting microphone access...");
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      console.log("Microphone access granted!");
+
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const audioContext = new AudioContextClass({ sampleRate: 16000 }); // 16kHz is ideal for AI STT
+      audioContextRef.current = audioContext;
+
+      const source = audioContext.createMediaStreamSource(stream);
+      // Create a processor with a 4096 buffer size, 1 input channel, 1 output channel
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      processorRef.current = processor;
+
+      leftChannel.current = [];
+      recordingLength.current = 0;
+
+      processor.onaudioprocess = (e) => {
+        const samples = new Float32Array(e.inputBuffer.getChannelData(0));
+        leftChannel.current.push(samples);
+        recordingLength.current += samples.length;
+      };
+
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+      setIsRecording(true);
+
+    } catch (err) {
+      console.error("Microphone access failed:", err);
+      alert("Could not access the microphone. Please check your browser permissions.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (!processorRef.current || !audioContextRef.current) return;
+
+    setIsRecording(false);
+    setLoading(true);
+
+    // Disconnect audio nodes
+    processorRef.current.disconnect();
+    audioContextRef.current.close();
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+    }
+
+    // Flatten the recorded audio chunks
+    const flattened = new Float32Array(recordingLength.current);
+    let offset = 0;
+    for (let i = 0; i < leftChannel.current.length; i++) {
+      flattened.set(leftChannel.current[i], offset);
+      offset += leftChannel.current[i].length;
+    }
+
+    // Encode to an actual standard 16-bit PCM WAV file buffer
+    const buffer = new ArrayBuffer(44 + flattened.length * 2);
+    const view = new DataView(buffer);
+
+    /* RIFF identifier */
+    writeString(view, 0, 'RIFF');
+    /* file length */
+    view.setUint32(4, 36 + flattened.length * 2, true);
+    /* RIFF type */
+    writeString(view, 8, 'WAVE');
+    /* format chunk identifier */
+    writeString(view, 12, 'fmt ');
+    /* format chunk length */
+    view.setUint32(16, 16, true);
+    /* sample format (raw PCM) */
+    view.setUint16(20, 1, true);
+    /* channel count */
+    view.setUint16(22, 1, true);
+    /* sample rate */
+    view.setUint32(24, 16000, true);
+    /* byte rate (sample rate * block align) */
+    view.setUint32(28, 16000 * 2, true);
+    /* block align (channel count * bytes per sample) */
+    view.setUint16(32, 2, true);
+    /* bits per sample */
+    view.setUint16(34, 16, true);
+    /* data chunk identifier */
+    writeString(view, 36, 'data');
+    /* data chunk length */
+    view.setUint32(40, flattened.length * 2, true);
+
+    // Write PCM audio samples
+    let index = 44;
+    for (let i = 0; i < flattened.length; i++) {
+      const s = Math.max(-1, Math.min(1, flattened[i]));
+      view.setInt16(index, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      index += 2;
+    }
+
+    const audioBlob = new Blob([view], { type: 'audio/wav' });
+
+    // Send across the Base64 JSON connection pipeline
+    const reader = new FileReader();
+    reader.readAsDataURL(audioBlob);
+    reader.onloadend = async () => {
+      try {
+        const base64String = (reader.result as string).split(',')[1];
+        const res = await fetch('/api/chat/voice-transcribe', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken 
+          },
+          body: JSON.stringify({ audio: base64String, languageCode: language})
+        });
+        
+        const data = await res.json();
+        if (data.transcript) {
+          setInput(data.transcript); 
+        }
+      } catch (apiErr) {
+        console.error("Backend API Error:", apiErr);
+      } finally {
+        setLoading(false);
+      }
+    };
+  };
+
+  // Small helper utility function to write headers into the DataView
+  const writeString = (view: DataView, offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -225,22 +367,59 @@ export default function FloatingChat() {
             </div>
 
             {/* Input form */}
-            <form onSubmit={handleSend} className="border-t border-gray-150 p-3 flex gap-2 bg-white">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Describe your task..."
-                className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-800 placeholder-gray-400 focus:border-black focus:outline-none bg-gray-50"
-              />
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex items-center justify-center rounded-lg bg-black p-2 text-white hover:bg-gray-900 transition-colors disabled:opacity-50 cursor-pointer"
+<form onSubmit={handleSend} className="relative border-t border-gray-200 p-3 flex gap-2 bg-white w-full items-center z-10">
+  
+  {/* Recording Pulse Animation */}
+  {isRecording && (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="absolute -top-10 left-3 flex items-center gap-2 bg-red-100 text-red-600 px-3 py-1 rounded-full text-[10px] font-bold shadow-sm"
+    >
+      <span className="relative flex h-2 w-2">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+      </span>
+      Hive is listening...
+    </motion.div>
+  )}
+
+  <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                disabled={isRecording}
+                className="p-2 text-xs bg-gray-100 text-gray-600 rounded-lg border-none outline-none cursor-pointer hover:bg-gray-200 transition-colors disabled:opacity-50"
               >
-                <Send className="h-4 w-4" />
-              </button>
-            </form>
+                <option value="en-IN">EN</option>
+                <option value="hi-IN">HI</option>
+                <option value="mr-IN">MR</option>
+              </select>
+
+  <button
+    type="button"
+    onClick={isRecording ? stopRecording : startRecording}
+    className={`p-2 rounded-lg transition-colors flex-shrink-0 ${isRecording ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+  >
+    {isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+  </button>
+  
+  <input
+    type="text"
+    value={input}
+    onChange={(e) => setInput(e.target.value)}
+    placeholder="Describe your task..."
+    autoComplete="off"
+    className="flex-1 min-w-0 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:border-black focus:outline-none bg-gray-50"
+  />
+  
+  <button 
+    type="submit" 
+    disabled={loading} 
+    className="flex-shrink-0 flex items-center justify-center rounded-lg bg-black p-2 text-white hover:bg-gray-900 transition-colors disabled:opacity-50 cursor-pointer"
+  >
+    <Send className="h-4 w-4" />
+  </button>
+</form>
           </motion.div>
         )}
       </AnimatePresence>

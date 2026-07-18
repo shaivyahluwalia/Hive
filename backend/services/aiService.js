@@ -262,3 +262,110 @@ function localPredict(title, description, category, budget) {
     suggestions: ['Data Analyst AI', 'Business Administrator']
   };
 }
+
+
+/**
+ * Converts text into speech using Gnani's Timbre model (TTS)
+ */
+export async function textToSpeechGnani(text, agentName = '') {
+  const apiKey = process.env.GNANI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Gnani API key missing in environment configuration.');
+  }
+
+  // Map Hive's AI Agents to Gnani's standard voice personas
+  let voicePersona = 'Kaveri'; // Default voice
+  if (agentName.includes('Writer') || agentName.includes('Social')) {
+    voicePersona = 'Kaveri';  // Confident, Bright
+  } else if (agentName.includes('HR')) {
+    voicePersona = 'Shubhra'; // Gentle, Expressive
+  } else if (agentName.includes('Data') || agentName.includes('Analyst')) {
+    voicePersona = 'Pranav';  // Bold, Trustworthy
+  } else if (agentName.includes('Coding')) {
+    voicePersona = 'Deepak';  // Grounded, Conversational
+  }
+
+  const url = 'https://api.vachana.ai/api/v1/tts/inference';
+  
+  const payload = {
+    text: text,
+    voice: voicePersona,
+    model: "vachana-voice-v3",
+    audio_config: {
+      container: "wav",
+      encoding: "linear_pcm",
+      num_channels: 1,
+      sample_rate: 44100,
+      sample_width: 2
+    }
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key-ID': apiKey
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Gnani TTS API returned status ${response.status}: ${errText}`);
+  }
+
+  // Return binary arrayBuffer converted to a Node Buffer object
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+/**
+ * Transcribes audio file data to text using Gnani's Prisma model (STT)
+ */
+// ADD languageCode to the function arguments
+export async function speechToTextGnani(audioBuffer, mimeType = 'audio/wav', languageCode = 'en-IN') {
+  const apiKey = process.env.GNANI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Gnani API key missing.');
+  }
+
+  const url = 'https://api.vachana.ai/stt/v3';
+  const boundary = `----NodeFetchFormBoundary${crypto.randomBytes(16).toString('hex')}`;
+  
+  let headerPayload = `--${boundary}\r\n`;
+  headerPayload += `Content-Disposition: form-data; name="audio_file"; filename="input.wav"\r\n`;
+  headerPayload += `Content-Type: ${mimeType}\r\n\r\n`;
+
+  let footerPayload = `\r\n--${boundary}\r\n`;
+  // INJECT the dynamic languageCode here instead of hardcoding 'en-IN'
+  footerPayload += `Content-Disposition: form-data; name="language_code"\r\n\r\n${languageCode}\r\n`; 
+  footerPayload += `--${boundary}\r\n`;
+  // ... rest of the payload stays exactly the same
+  footerPayload += `Content-Disposition: form-data; name="format"\r\n\r\ntranscribe\r\n`;
+  footerPayload += `--${boundary}\r\n`;
+  footerPayload += `Content-Disposition: form-data; name="itn_native_numerals"\r\n\r\ntrue\r\n`; 
+  footerPayload += `--${boundary}--\r\n`;
+
+  const bodyBuffer = Buffer.concat([
+    Buffer.from(headerPayload, 'utf-8'),
+    audioBuffer,
+    Buffer.from(footerPayload, 'utf-8')
+  ]);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      'X-API-Key-ID': apiKey
+    },
+    body: bodyBuffer
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Gnani STT API returned status ${response.status}: ${errText}`);
+  }
+
+  const data = await response.json();
+  return data.transcript || '';
+}
