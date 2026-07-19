@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 // ── Auth endpoints: 10 attempts per 15 min per IP ────────────
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
+  max: 50,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many login attempts. Please try again in 15 minutes.' }
@@ -12,7 +12,7 @@ export const authLimiter = rateLimit({
 // ── Signup: 5 accounts per hour per IP ───────────────────────
 export const signupLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5,
+  max: 50,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many accounts created from this IP. Please try again in 1 hour.' }
