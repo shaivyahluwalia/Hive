@@ -1,0 +1,255 @@
+{
+  "users": [
+    {
+      "_id": "upk07p5tf5ll76gck1w6q",
+      "createdAt": "2026-07-18T22:04:53.556Z",
+      "updatedAt": "2026-07-18T22:04:53.556Z",
+      "reviews": [],
+      "portfolio": [],
+      "skills": [],
+      "username": "Hive Administrator",
+      "email": "admin@hive.com",
+      "password": "$2a$10$dG01Y4dlYbKelgSGmJY7O.6/PxzzMINEwjXpDqiAZCKDOs2i79316",
+      "role": "Admin",
+      "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=Admin"
+    },
+    {
+      "_id": "4pqml8tfvfkfv5gty2ms",
+      "createdAt": "2026-07-18T22:04:53.668Z",
+      "updatedAt": "2026-07-18T22:04:53.668Z",
+      "reviews": [
+        {
+          "reviewer": "TechCorp CEO",
+          "rating": 5,
+          "comment": "Alice built our MVP landing page in 3 days. Clean Next.js code!"
+        },
+        {
+          "reviewer": "BuildFast Inc",
+          "rating": 4.8,
+          "comment": "Very professional developer, highly recommended."
+        }
+      ],
+      "portfolio": [],
+      "skills": [
+        "React",
+        "Next.js",
+        "Node.js",
+        "TypeScript",
+        "Tailwind CSS"
+      ],
+      "username": "Alice Vance",
+      "email": "alice@hive.com",
+      "location": "San Francisco, CA (Remote)",
+      "hourlyPrice": 75,
+      "experience": "Senior Developer",
+      "availability": "Available",
+      "rating": 4.9,
+      "password": "$2a$10$NVEuwZYqzmzIuy6XkdkVx.PYx/ARVYgNWY.pYVtZ4MtVHpH/FaeQm",
+      "role": "Worker",
+      "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=Alice%20Vance"
+    },
+    {
+      "_id": "soz5tuass6ijtco39f9dq",
+      "createdAt": "2026-07-18T22:04:53.779Z",
+      "updatedAt": "2026-07-18T22:04:53.779Z",
+      "reviews": [
+        {
+          "reviewer": "Innovate LLC",
+          "rating": 5,
+          "comment": "Designed a beautiful dashboard layout with amazing purple colors."
+        }
+      ],
+      "portfolio": [],
+      "skills": [
+        "Figma",
+        "UI/UX Design",
+        "Branding",
+        "Vector Illustration",
+        "Framer"
+      ],
+      "username": "Bob Miller",
+      "email": "bob@hive.com",
+      "location": "New York, NY (Remote)",
+      "hourlyPrice": 55,
+      "experience": "Mid-level Designer",
+      "availability": "Available",
+      "rating": 4.8,
+      "password": "$2a$10$KOj0hP/r7CGWpg8J3IXh3unMb1kRq2R7ydZnwzZH6AR73mp8Zz0XG",
+      "role": "Worker",
+      "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=Bob%20Miller"
+    },
+    {
+      "_id": "a09pf7g38vnedb8azvxskn",
+      "createdAt": "2026-07-18T22:04:53.887Z",
+      "updatedAt": "2026-07-18T22:04:53.887Z",
+      "reviews": [
+        {
+          "reviewer": "SaaS Pulse",
+          "rating": 4,
+          "comment": "Charlie wrote high-quality blog posts that ranked #1 on Google."
+        }
+      ],
+      "portfolio": [],
+      "skills": [
+        "SEO Copywriting",
+        "Technical Writing",
+        "Blog Content",
+        "Copy Editing"
+      ],
+      "username": "Charlie Writing",
+      "email": "charlie@hive.com",
+      "location": "Austin, TX (Remote)",
+      "hourlyPrice": 40,
+      "experience": "Senior Writer",
+      "availability": "Available",
+      "rating": 4.7,
+      "password": "$2a$10$alDoYBilUbGdkAx1Eyw0vO4uEHNuX6MB9kUR0M47EsGvWoJGbrwja",
+      "role": "Worker",
+      "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=Charlie%20Writing"
+    },
+    {
+      "_id": "8lx88tz7txd7zf9tb55toa",
+      "createdAt": "2026-07-18T22:04:54.000Z",
+      "updatedAt": "2026-07-18T22:04:54.000Z",
+      "reviews": [
+        {
+          "reviewer": "WebScale",
+          "rating": 5,
+          "comment": "Diana tripled our signups using targeted PPC campaigns."
+        }
+      ],
+      "portfolio": [],
+      "skills": [
+        "Google Ads",
+        "SEO Optimization",
+        "Social Media Strategy",
+        "Growth Marketing"
+      ],
+      "username": "Diana Marketer",
+      "email": "diana@hive.com",
+      "location": "London, UK (Remote)",
+      "hourlyPrice": 60,
+      "experience": "Mid-level Marketer",
+      "availability": "Busy",
+      "rating": 4.9,
+      "password": "$2a$10$VSzxyoqOFMv5IXNndMiXEOXHi2z5OGsnXQIXN85gsDmeepS0ZLvUa",
+      "role": "Worker",
+      "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=Diana%20Marketer"
+    },
+    {
+      "_id": "5pogja1t215id10ikn8pk",
+      "createdAt": "2026-07-19T06:50:09.870Z",
+      "updatedAt": "2026-07-19T06:50:09.870Z",
+      "reviews": [],
+      "portfolio": [],
+      "skills": [],
+      "username": "kds",
+      "email": "kds@gmail.com",
+      "password": "$2a$10$5BimmqMs8LCdkFZHWeRt5O5MPIcTFrshM3Zop4xX4jDNsY/.e4fJ6",
+      "role": "Business",
+      "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=kds"
+    }
+  ],
+  "jobs": [],
+  "aiAgents": [
+    {
+      "_id": "nv9120z4a9hzvgeye44y5q",
+      "createdAt": "2026-07-18T22:04:53.430Z",
+      "updatedAt": "2026-07-18T22:04:53.432Z",
+      "rating": 4.8,
+      "status": "Active",
+      "name": "Content Writer AI",
+      "category": "Writing",
+      "description": "Generates SEO-friendly blogs, marketing copy, and social media captions in seconds.",
+      "price": 15,
+      "speed": "Super Fast",
+      "accuracy": "95%",
+      "icon": "FileText"
+    },
+    {
+      "_id": "r7yyrpvcz6rtjdz1y97n",
+      "createdAt": "2026-07-18T22:04:53.432Z",
+      "updatedAt": "2026-07-18T22:04:53.432Z",
+      "rating": 4.8,
+      "status": "Active",
+      "name": "Graphic Designer AI",
+      "category": "Design",
+      "description": "Creates premium logos, branding assets, custom illustrations, and banner templates.",
+      "price": 29,
+      "speed": "Fast",
+      "accuracy": "90%",
+      "icon": "Palette"
+    },
+    {
+      "_id": "n4w5e05qwhj4m6m602gq8m",
+      "createdAt": "2026-07-18T22:04:53.432Z",
+      "updatedAt": "2026-07-18T22:04:53.432Z",
+      "rating": 4.8,
+      "status": "Active",
+      "name": "Data Analyst AI",
+      "category": "Analytics",
+      "description": "Ingests spreadsheets, builds visual reports, runs statistical tests, and extracts actionable insights.",
+      "price": 35,
+      "speed": "Super Fast",
+      "accuracy": "99%",
+      "icon": "BarChart"
+    },
+    {
+      "_id": "tlfn8rbk7y1eeev8wtqdz",
+      "createdAt": "2026-07-18T22:04:53.432Z",
+      "updatedAt": "2026-07-18T22:04:53.432Z",
+      "rating": 4.8,
+      "status": "Active",
+      "name": "Customer Support AI",
+      "category": "Support",
+      "description": "Handles user tickets, queries, FAQs, and handles order status updates with polite, human-like chat.",
+      "price": 19,
+      "speed": "Instant",
+      "accuracy": "96%",
+      "icon": "MessageSquare"
+    },
+    {
+      "_id": "9d3hnwac10baem6zmjwyme",
+      "createdAt": "2026-07-18T22:04:53.432Z",
+      "updatedAt": "2026-07-18T22:04:53.432Z",
+      "rating": 4.8,
+      "status": "Active",
+      "name": "Resume Builder AI",
+      "category": "Writing",
+      "description": "Rewrites CVs, constructs tailored cover letters, and optimizes LinkedIn profiles for applicant tracking systems.",
+      "price": 9,
+      "speed": "Instant",
+      "accuracy": "98%",
+      "icon": "Briefcase"
+    },
+    {
+      "_id": "7mu2kyqarvjtq5elqngil",
+      "createdAt": "2026-07-18T22:04:53.432Z",
+      "updatedAt": "2026-07-18T22:04:53.432Z",
+      "rating": 4.8,
+      "status": "Active",
+      "name": "Coding Assistant AI",
+      "category": "Development",
+      "description": "Generates boilerplates, debugs compile errors, writes unit tests, and documents API designs.",
+      "price": 49,
+      "speed": "Super Fast",
+      "accuracy": "92%",
+      "icon": "Code"
+    },
+    {
+      "_id": "kphgsf0mvqi38m8cjved",
+      "createdAt": "2026-07-18T22:04:53.432Z",
+      "updatedAt": "2026-07-18T22:04:53.432Z",
+      "rating": 4.8,
+      "status": "Active",
+      "name": "Social Media AI",
+      "category": "Marketing",
+      "description": "Plans editorial schedules, researches trending hashtags, schedules auto-posts, and replies to comments.",
+      "price": 25,
+      "speed": "Fast",
+      "accuracy": "94%",
+      "icon": "Share2"
+    }
+  ],
+  "messages": []
+}
