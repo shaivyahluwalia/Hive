@@ -38,7 +38,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://hive-6.onrender.com";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -130,10 +130,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (data.user.role === "Admin") {
           router.push("/dashboard/admin");
-        } 
+        }
         else if (data.user.role === "Business") {
           router.push("/dashboard/business");
-        } 
+        }
         else {
           router.push("/dashboard/worker");
         }
@@ -202,24 +202,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         return await login(email, password);
 
-      } 
+      }
       else {
 
         return {
-          success:false,
-          error:data.error || "Signup failed",
+          success: false,
+          error: data.error || "Signup failed",
         };
 
       }
 
 
-    } catch(err){
+    } catch (err) {
 
-      console.error("Signup error:",err);
+      console.error("Signup error:", err);
 
       return {
-        success:false,
-        error:"Network error. Please try again.",
+        success: false,
+        error: "Network error. Please try again.",
       };
 
     }
@@ -234,25 +234,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       await fetch(`${API_URL}/api/auth/logout`, {
 
-        method:"POST",
+        method: "POST",
 
-        credentials:"include",
+        credentials: "include",
 
-        headers:{
-          "X-CSRF-Token":csrfToken,
+        headers: {
+          "X-CSRF-Token": csrfToken,
         },
 
       });
 
 
-    } catch(err){
+    } catch (err) {
 
-      console.error("Logout error:",err);
+      console.error("Logout error:", err);
 
     } finally {
 
       setUser(null);
-      window.location.href="/";
+      window.location.href = "/";
 
     }
 
@@ -280,11 +280,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 
 
-export function useAuth(){
+export function useAuth() {
 
   const context = useContext(AuthContext);
 
-  if(!context){
+  if (!context) {
 
     throw new Error(
       "useAuth must be used within AuthProvider"
