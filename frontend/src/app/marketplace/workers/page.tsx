@@ -117,7 +117,7 @@ export default function WorkersMarketplace() {
     reader.onloadend = async () => {
       try {
         const base64String = (reader.result as string).split(',')[1];
-        const res = await fetch('http://127.0.0.1:5000/api/chat/voice-transcribe', {          method: 'POST',
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/voice-transcribe`, {          method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
             'X-CSRF-Token': csrfToken 

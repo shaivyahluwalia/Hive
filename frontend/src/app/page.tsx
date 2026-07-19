@@ -293,7 +293,9 @@ export default function LandingPage() {
                       </div>
                       <div>
                         <div style={{ fontSize: '0.72rem', fontWeight: 700 }}>MongoDB Database Layer</div>
-                        <div style={{ fontSize: '0.58rem', color: '#10b981', marginTop: '0.15rem' }}>● Connected: mongodb://127.0.0.1:27017/hive</div>
+                        <div style={{ fontSize: '0.58rem', color: '#10b981', marginTop: '0.15rem' }}>
+  ● Connected: Hive Cloud Database Cluster
+</div>
                       </div>
                     </div>
 
