@@ -10,16 +10,16 @@ import { fileURLToPath } from 'url';
 import pathMod from 'path';
 
 // Load route modules
-import authRouter       from './routes/auth.js';
-import jobsRouter       from './routes/jobs.js';
+import authRouter from './routes/auth.js';
+import jobsRouter from './routes/jobs.js';
 import marketplaceRouter from './routes/marketplace.js';
-import chatRouter       from './routes/chat.js';
-import adminRouter      from './routes/admin.js';
-import agentsRouter     from './routes/agents.js';
-import resumeRouter     from './routes/resume.js';
-import paymentsRouter   from './routes/payments.js'; // Teammate's route
-import reviewsRouter    from './routes/reviews.js';
-import paymentRouter    from './routes/payment.js';  // Your AI agent route
+import chatRouter from './routes/chat.js';
+import adminRouter from './routes/admin.js';
+import agentsRouter from './routes/agents.js';
+import resumeRouter from './routes/resume.js';
+import paymentsRouter from './routes/payments.js'; // Teammate's route
+import reviewsRouter from './routes/reviews.js';
+import paymentRouter from './routes/payment.js';  // Your AI agent route
 
 // Rate limiting middleware
 import { authLimiter, signupLimiter, apiLimiter } from './middleware/rateLimiter.js';
@@ -49,7 +49,7 @@ app.use(cookieParser());
 
 // Serve uploaded resume files (authenticated download handled in route)
 const __filename2 = fileURLToPath(import.meta.url);
-const __dirname2  = pathMod.dirname(__filename2);
+const __dirname2 = pathMod.dirname(__filename2);
 app.use('/uploads', express.static(pathMod.join(__dirname2, '../uploads')));
 
 // Security Headers Middleware
@@ -58,7 +58,7 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Prevent clickjacking
   res.setHeader('X-Frame-Options', 'DENY');
-  
+
   // ALLOW MICROPHONE ACCESS ON LOCALHOST FOR DEVELOPMENT
   res.setHeader('Permission-Policy', 'camera=(), microphone=(self "http://localhost:3000" "http://127.0.0.1:3000"), geolocation=()');
   next();
@@ -69,22 +69,22 @@ app.use((req, res, next) => {
 // ----------------------------------------------------
 
 // Auth routes — rate limited
-app.post('/api/auth/login',  authLimiter);
+app.post('/api/auth/login', authLimiter);
 app.post('/api/auth/signup', signupLimiter);
 app.use('/api/auth', authRouter);
 
 // Apply general rate limit + CSRF to state-changing routes
-app.use('/api/jobs',        apiLimiter, csrfProtection, jobsRouter);
+app.use('/api/jobs', apiLimiter, csrfProtection, jobsRouter);
 app.use('/api/marketplace', apiLimiter, csrfProtection, marketplaceRouter);
-app.use('/api/chat',        apiLimiter, csrfProtection, chatRouter);
-app.use('/api/admin',       apiLimiter, csrfProtection, adminRouter);
-app.use('/api/agents',      apiLimiter, csrfProtection, agentsRouter);
-app.use('/api/resume',      apiLimiter, csrfProtection, resumeRouter);
-app.use('/api/payments',    apiLimiter, csrfProtection, paymentsRouter);
-app.use('/api/reviews',     apiLimiter, csrfProtection, reviewsRouter);
+app.use('/api/chat', apiLimiter, csrfProtection, chatRouter);
+app.use('/api/admin', apiLimiter, csrfProtection, adminRouter);
+app.use('/api/agents', apiLimiter, csrfProtection, agentsRouter);
+app.use('/api/resume', apiLimiter, csrfProtection, resumeRouter);
+app.use('/api/payments', apiLimiter, csrfProtection, paymentsRouter);
+app.use('/api/reviews', apiLimiter, csrfProtection, reviewsRouter);
 
 // Your AI agent payment route (Exempt from CSRF/RateLimit for mock hackathon flow)
-app.use('/api/payment',     paymentRouter); 
+app.use('/api/payment', paymentRouter);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -191,8 +191,8 @@ const seedPlatformAccounts = async () => {
   }
 };
 
-// Start Server listening strictly on Localhost loopback interface for testing security
-app.listen(PORT, '127.0.0.1', async () => {
-  console.log(`Hive Backend Server listening on http://127.0.0.1:${PORT} [Mode: ${dbMode}]`);
+// Start Server
+app.listen(PORT, '0.0.0.0', async () => {
+  console.log(`Hive Backend Server listening on port ${PORT} [Mode: ${dbMode}]`);
   await seedPlatformAccounts();
 });
