@@ -38,8 +38,18 @@ await connectDB();
 
 // CORS configuration supporting credentials from local frontend
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
-  credentials: true
+  origin: [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://hive-chi-seven.vercel.app"
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-CSRF-Token"
+  ]
 }));
 
 // BOOST PAYLOAD LIMITS FOR BASE64 STRINGS
