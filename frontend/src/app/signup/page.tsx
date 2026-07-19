@@ -47,7 +47,7 @@ export default function SignupPage() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', minHeight: '80vh', itemsCenter: 'center', justifyContent: 'center', background: 'var(--bg-canvas)' }}>
+      <div style={{ display: 'flex', minHeight: '80vh', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-canvas)' }}>
         <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
           <div style={{ width: '32px', height: '32px', border: '3px solid var(--accent-red)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
           <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--fg-muted)' }}>Loading...</p>

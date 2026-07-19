@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthContext';
 import { useRouter } from 'next/navigation';
 import { 
-  Users, Briefcase, Cpu, DollarSign, Trash2, 
+  Users, Briefcase, Cpu, IndianRupee, Trash2, 
   ShieldAlert, RefreshCw, Layers, Loader2 
 } from 'lucide-react';
 
@@ -166,7 +166,7 @@ export default function AdminDashboard() {
                   { label: 'Platform Users', val: stats.totalUsers, sub: `${stats.businessCount} Clients · ${stats.workerCount} Workers`, icon: Users, color: 'rgba(24,24,26,0.04)' },
                   { label: 'Active Contracts', val: `${stats.inProgressJobs + stats.completedJobs} Jobs`, sub: `${stats.pendingJobs} Pending bids`, icon: Briefcase, color: 'rgba(200,57,45,0.08)' },
                   { label: 'AI Runtimes', val: stats.activeAiTasks + stats.completedAiTasks, sub: `${stats.activeAiTasks} Active tasks`, icon: Cpu, color: 'rgba(26,127,212,0.08)' },
-                  { label: 'Spend Volume', val: `$${stats.totalSpend.toLocaleString()}`, sub: `Saved: $${stats.estimatedSavings.toFixed(0)}`, icon: DollarSign, color: 'rgba(24,24,26,0.04)' }
+                  { label: 'Spend Volume', val: `₹${stats.totalSpend.toLocaleString('en-IN')}`, sub: `Saved: ₹${stats.estimatedSavings.toLocaleString('en-IN')}`, icon: IndianRupee, color: 'rgba(24,24,26,0.04)' }
                 ].map((c, i) => (
                   <div key={i} className="hive-card" style={{ padding: '1.25rem 1.5rem', background: '#fff' }}>
                     <div style={{
@@ -264,7 +264,7 @@ export default function AdminDashboard() {
                             <span style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--fg-muted)', display: 'block', marginTop: '0.15rem' }}>{job.workerType}</span>
                           </td>
                           <td style={{ padding: '0.75rem', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--fg-primary)' }}>
-                            ${job.budget}
+                            ₹{job.budget.toLocaleString('en-IN')}
                           </td>
                           <td style={{ padding: '0.75rem', textAlign: 'right' }}>
                             <span style={{

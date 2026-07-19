@@ -6,14 +6,22 @@ import bcrypt from 'bcryptjs';
 import { connectDB, dbMode } from './config/db.js';
 import { dbService } from './models/dbService.js';
 import { csrfProtection } from './middleware/csrf.js';
+import { fileURLToPath } from 'url';
+import pathMod from 'path';
 
 // Load route modules
-import authRouter from './routes/auth.js';
-import jobsRouter from './routes/jobs.js';
+import authRouter       from './routes/auth.js';
+import jobsRouter       from './routes/jobs.js';
 import marketplaceRouter from './routes/marketplace.js';
-import chatRouter from './routes/chat.js';
-import adminRouter from './routes/admin.js';
-import agentsRouter from './routes/agents.js'; 
+import chatRouter       from './routes/chat.js';
+import adminRouter      from './routes/admin.js';
+import agentsRouter     from './routes/agents.js';
+import resumeRouter     from './routes/resume.js';
+import paymentsRouter   from './routes/payments.js';
+import reviewsRouter    from './routes/reviews.js';
+
+// Rate limiting middleware
+import { authLimiter, signupLimiter, apiLimiter } from './middleware/rateLimiter.js';
 
 dotenv.config();
 
@@ -39,6 +47,11 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
 
+// Serve uploaded resume files (authenticated download handled in route)
+const __filename2 = fileURLToPath(import.meta.url);
+const __dirname2  = pathMod.dirname(__filename2);
+app.use('/uploads', express.static(pathMod.join(__dirname2, '../uploads')));
+
 // Security Headers Middleware
 app.use((req, res, next) => {
   // Prevent content type sniffing
@@ -55,15 +68,20 @@ app.use((req, res, next) => {
 // Router Registrations
 // ----------------------------------------------------
 
-// Auth routes (includes GET /csrf which is exempt from CSRF validation checks)
+// Auth routes — rate limited
+app.post('/api/auth/login',  authLimiter);
+app.post('/api/auth/signup', signupLimiter);
 app.use('/api/auth', authRouter);
 
-// Apply CSRF validation to state-changing operations
-app.use('/api/jobs', csrfProtection, jobsRouter);
-app.use('/api/marketplace', csrfProtection, marketplaceRouter);
-app.use('/api/chat', csrfProtection, chatRouter);
-app.use('/api/admin', csrfProtection, adminRouter);
-app.use('/api/agents', csrfProtection, agentsRouter);
+// Apply general rate limit + CSRF to state-changing routes
+app.use('/api/jobs',        apiLimiter, csrfProtection, jobsRouter);
+app.use('/api/marketplace', apiLimiter, csrfProtection, marketplaceRouter);
+app.use('/api/chat',        apiLimiter, csrfProtection, chatRouter);
+app.use('/api/admin',       apiLimiter, csrfProtection, adminRouter);
+app.use('/api/agents',      apiLimiter, csrfProtection, agentsRouter);
+app.use('/api/resume',      apiLimiter, csrfProtection, resumeRouter);
+app.use('/api/payments',    apiLimiter, csrfProtection, paymentsRouter);
+app.use('/api/reviews',     apiLimiter, csrfProtection, reviewsRouter);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

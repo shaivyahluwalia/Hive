@@ -6,38 +6,38 @@ import { Search, Mic, ArrowRight, Play, Briefcase, Users, Cpu, ChevronRight } fr
 import Link from 'next/link';
 
 const HUMAN_ROLES = [
-  { title: 'Waiter / Server', rate: '$14/hr', avail: 'Available Today' },
-  { title: 'Cashier', rate: '$13/hr', avail: 'Available Today' },
-  { title: 'Receptionist', rate: '$18/hr', avail: 'Available Tomorrow' },
-  { title: 'Cleaner', rate: '$12/hr', avail: 'Available Today' },
-  { title: 'Delivery Executive', rate: '$16/hr', avail: 'Available Today' },
-  { title: 'Salesperson', rate: '$20/hr', avail: 'On Request' },
+  { title: 'Waiter / Server', rate: '₹1,100/hr', avail: 'Available Today' },
+  { title: 'Cashier', rate: '₹1,000/hr', avail: 'Available Today' },
+  { title: 'Receptionist', rate: '₹1,400/hr', avail: 'Available Tomorrow' },
+  { title: 'Cleaner', rate: '₹900/hr', avail: 'Available Today' },
+  { title: 'Delivery Executive', rate: '₹1,200/hr', avail: 'Available Today' },
+  { title: 'Salesperson', rate: '₹1,600/hr', avail: 'On Request' },
 ];
 
 const AI_AGENTS = [
   {
-    title: 'Sales Analysis Agent',
-    desc: 'Revenue trends, top products, forecasts — pulled live from sales data',
-    price: 'Included',
-    slug: 'sales',
+    title: 'Digital Marketing Executive',
+    desc: 'Instagram captions, ad copy, product descriptions, email campaigns',
+    price: '₹2,499/mo',
+    slug: 'marketing',
   },
   {
-    title: 'Design Agent',
-    desc: 'Brand guidelines, asset lookup, layout suggestions',
-    price: 'Included',
-    slug: 'design',
+    title: 'Digital Business Analyst',
+    desc: 'CSV analysis, sales insights, trend reports, business summaries',
+    price: '₹4,199/mo',
+    slug: 'analyst',
   },
   {
-    title: 'Work Management Agent',
-    desc: 'Task lists, deadlines, creating new tasks',
-    price: 'Included',
-    slug: 'work-management',
+    title: 'Digital Documentation Executive',
+    desc: 'Proofreading, grammar correction, document rewriting & formatting',
+    price: '₹2,499/mo',
+    slug: 'documentation',
   },
   {
-    title: 'Messaging Agent',
-    desc: 'Draft and send Slack messages instantly',
-    price: 'Included',
-    slug: 'messaging',
+    title: 'Digital HR Executive',
+    desc: 'Job descriptions, resume summaries, interview questions, candidate evaluation',
+    price: '₹3,349/mo',
+    slug: 'hr',
   },
 ];
 export default function BusinessDashboard() {

@@ -100,16 +100,15 @@ const MOCK_OUTPUTS: Record<string, string> = {
 "The best summer memories start before 9 AM. Our new summer blend is your daily ritual, elevated. What's in your cup this morning? ☕ #SummerBlend #CoffeeCommunity"`,
 
   analyst: `📊 Business Performance Summary — Q2 2026:
-
-Revenue Overview:
-- Total Revenue: $142,800 (+18% YoY)
-- Avg. Order Value: $68.40 (+7% vs Q1)
-- Top Region: West (42% of total)
+Streamlined for local currency metrics:
+• Total Revenue: ₹1,14,24,000 (+18% YoY)
+• Avg. Order Value: ₹5,472 (+7% vs Q1)
+• Top Region: West (42% of total)
 
 Key Insights:
 1. Product Category Shift: Service bookings up 34%, replacing product sales as #1 contributor.
 2. Customer Retention: Repeat customer rate improved to 64% (from 51% in Q1).
-3. CAC decreased to $22 per customer after restructuring ad spend to performance channels.
+3. CAC decreased to ₹1,760 per customer after restructuring ad spend to performance channels.
 
 Recommendations:
 - Double down on West region with geo-targeted campaigns.

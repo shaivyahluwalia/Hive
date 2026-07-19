@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/components/AuthContext';
-import { User, FileText, CheckCircle, Clock, Briefcase, Search, MapPin, ArrowRight, Upload, X, FileBadge2, Pencil } from 'lucide-react';
+import { User, FileText, CheckCircle, Clock, Briefcase, Search, MapPin, ArrowRight, Upload, X, FileBadge2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 const MOCK_JOBS = [
@@ -27,37 +27,80 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
 };
 
 export default function WorkerDashboard() {
-  const { user } = useAuth();
+  const { user, csrfToken, refreshUser } = useAuth();
   const [searchJob, setSearchJob] = useState('');
   const [appliedIds, setAppliedIds] = useState<number[]>([]);
 
   // Resume state
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [resumeUploaded, setResumeUploaded] = useState(false);
-  const [resumeSkills, setResumeSkills] = useState('');
-  const [resumeExp, setResumeExp] = useState('');
-  const [resumeSaving, setResumeSaving] = useState(false);
-  const [resumeSaved, setResumeSaved] = useState(false);
+  const [resumeFile, setResumeFile]       = useState<File | null>(null);
+  const [resumeSkills, setResumeSkills]   = useState('');
+  const [resumeExp, setResumeExp]         = useState('');
+  const [resumeBio, setResumeBio]         = useState('');
+  const [resumeSaving, setResumeSaving]   = useState(false);
+  const [resumeSaved, setResumeSaved]     = useState(false);
+  const [resumeError, setResumeError]     = useState('');
+  const [existingResume, setExistingResume] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Load existing resume info on mount
+  useEffect(() => {
+    const loadResume = async () => {
+      try {
+        const res = await fetch('/api/resume/me', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.resumePath)   setExistingResume(data.resumePath);
+          if (data.resumeSkills) setResumeSkills(data.resumeSkills);
+          if (data.resumeExp)    setResumeExp(data.resumeExp);
+          if (data.resumeBio)    setResumeBio(data.resumeBio);
+          if (data.resumePath)   setResumeSaved(true);
+        }
+      } catch { /* not logged in or no resume yet */ }
+    };
+    if (user?.role === 'Worker') loadResume();
+  }, [user]);
 
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (file) { setResumeFile(file); setResumeUploaded(false); setResumeSaved(false); }
+    if (file) { setResumeFile(file); setResumeSaved(false); setResumeError(''); }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) { setResumeFile(file); setResumeUploaded(false); setResumeSaved(false); }
+    if (file) { setResumeFile(file); setResumeSaved(false); setResumeError(''); }
   };
 
-  const handleResumeSave = () => {
+  const handleResumeSave = async () => {
     setResumeSaving(true);
-    setTimeout(() => {
+    setResumeError('');
+    try {
+      const formData = new FormData();
+      if (resumeFile) formData.append('file', resumeFile);
+      formData.append('skills',     resumeSkills);
+      formData.append('experience', resumeExp);
+      formData.append('bio',        resumeBio);
+
+      const res = await fetch('/api/resume/upload', {
+        method: 'POST',
+        headers: { 'X-CSRF-Token': csrfToken },
+        body: formData,
+        credentials: 'include',
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setResumeSaved(true);
+        if (data.filename) setExistingResume(data.filename);
+        await refreshUser();
+      } else {
+        setResumeError(data.error || 'Upload failed. Please try again.');
+      }
+    } catch {
+      setResumeError('Network error. Please check your connection.');
+    } finally {
       setResumeSaving(false);
-      setResumeUploaded(true);
-      setResumeSaved(true);
-    }, 1400);
+    }
   };
 
   const filtered = MOCK_JOBS.filter(j =>
@@ -174,9 +217,17 @@ export default function WorkerDashboard() {
                 )}
               </div>
 
+              {/* Show previously uploaded resume */}
+              {existingResume && !resumeFile && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 0.75rem', borderRadius: '8px', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                  <CheckCircle className="h-4 w-4 flex-shrink-0" style={{ color: '#16a34a' }} />
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#16a34a' }}>Resume on file: {existingResume}</span>
+                </div>
+              )}
+
               {resumeFile && (
                 <button
-                  onClick={e => { e.stopPropagation(); setResumeFile(null); setResumeUploaded(false); setResumeSaved(false); }}
+                  onClick={e => { e.stopPropagation(); setResumeFile(null); setResumeSaved(false); setResumeError(''); }}
                   style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
                 >
                   <X className="h-3.5 w-3.5" /> Remove file
@@ -225,16 +276,25 @@ export default function WorkerDashboard() {
                 <textarea
                   placeholder="A 1–2 sentence intro about yourself..."
                   rows={3}
+                  value={resumeBio}
+                  onChange={e => setResumeBio(e.target.value)}
                   className="hive-input"
                   style={{ fontSize: '0.875rem', resize: 'none', lineHeight: 1.55 }}
                 />
               </div>
 
+              {resumeError && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 0.75rem', borderRadius: '8px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', fontSize: '0.8125rem', color: '#dc2626' }}>
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  {resumeError}
+                </div>
+              )}
+
               <button
                 onClick={handleResumeSave}
-                disabled={resumeSaving || (!resumeFile && !resumeSkills)}
+                disabled={resumeSaving || (!resumeFile && !resumeSkills && !existingResume)}
                 className={resumeSaved ? 'btn-secondary' : 'btn-primary'}
-                style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontSize: '0.875rem', opacity: (resumeSaving || (!resumeFile && !resumeSkills)) ? 0.55 : 1 }}
+                style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontSize: '0.875rem', opacity: (resumeSaving || (!resumeFile && !resumeSkills && !existingResume)) ? 0.55 : 1 }}
               >
                 {resumeSaving ? (
                   <><div style={{ width: '14px', height: '14px', border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Saving...</>
