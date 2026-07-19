@@ -8,7 +8,7 @@ export async function predictWorkerType(title, description, category, budget) {
 
   if (apiKey) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
       const prompt = `Analyze the following job details and determine:
 1. The best worker type (strictly return one of: "Human Worker", "AI Employee", or "Human + AI Collaboration").
 2. A confidence score (a number between 0.0 and 1.0).
@@ -80,42 +80,48 @@ export async function getAssistantResponse(message) {
 
   if (apiKey) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
       const prompt = `You are Hive, a smart AI assistant for a talent platform that offers both human freelancers and AI employees.
 The user is asking: "${message}"
 
 Recommend whether they should hire an "AI Employee", a "Human Worker", or use "Human + AI Collaboration" for this request.
 Suggest appropriate specific profiles (e.g. Graphic Designer AI, Content Writer AI, Data Analyst AI, Coding Assistant AI, Customer Support AI) or freelancer roles.
 
-Format your response as a JSON object:
+Format your response as a valid JSON object matching this schema exactly:
 {
-  "recommendation": "Human Worker" | "AI Employee" | "Human + AI Collaboration",
+  "recommendation": "Human Worker",
   "reasoning": "A concise explanation (1-2 sentences).",
-  "suggestions": ["Profile/Agent Name 1", "Profile/Agent Name 2"]
-}
-Only output the JSON object without markdown formatting.`;
+  "suggestions": ["Profile Name 1", "Profile Name 2"]
+}`;
 
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{
-            parts: [{ text: prompt }]
-          }]
+          contents: [{ parts: [{ text: prompt }] }],
+          // Enforce raw JSON formatting from the model itself
+          generationConfig: { responseMimeType: "application/json" }
         })
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-        return JSON.parse(cleanJson);
+      if (!response.ok) {
+        const errorDetails = await response.text();
+        console.error(`❌ Gemini API Error Status: ${response.status} - Details: ${errorDetails}`);
+        throw new Error(`Gemini API returned status ${response.status}`);
       }
+
+      const data = await response.json();
+      let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      
+      // Robust cleaning to strip any potential markdown wrappers safely
+      rawText = rawText.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+
+      return JSON.parse(rawText);
     } catch (err) {
-      console.warn('Gemini Assistant API failed, using keyword fallback:', err.message);
+      console.error('❌ Critical failure inside getAssistantResponse:', err);
     }
+  } else {
+    console.warn('⚠️ GEMINI_API_KEY is not defined in the backend environment.');
   }
 
   // Text-based fallback for assistant chat

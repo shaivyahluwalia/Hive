@@ -155,7 +155,7 @@ export default function FloatingChat() {
             'Content-Type': 'application/json',
             'X-CSRF-Token': csrfToken 
           },
-          body: JSON.stringify({ audio: base64String, languageCode: language})
+          body: JSON.stringify({ audio: base64String, languageCode: language })
         });
         
         const data = await res.json();
@@ -187,14 +187,14 @@ export default function FloatingChat() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/chat/assistant', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken
-        },
-        body: JSON.stringify({ message: userMsgText })
-      });
+     const res = await fetch('/api/chat/assistant', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-CSRF-Token': csrfToken
+  },
+  body: JSON.stringify({ message: userMsgText })
+});
 
       const data = await res.json();
 

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, use } from 'react';
-import { Cpu, Send, Copy, CheckCircle2, Play, AlertCircle, ArrowLeft } from 'lucide-react';
+import React, { useState, use, useRef } from 'react';
+import { Cpu, Send, Copy, CheckCircle2, Play, AlertCircle, ArrowLeft, Mic, Square } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '../../../../components/AuthContext';
 
@@ -46,7 +46,6 @@ const AGENT_CONFIG: Record<string, {
       'Summarize this candidate resume into 3 key highlights: [paste]...',
     ]
   },
-  // ── Real agents (backed by the Groq-powered agent backend) ──
   sales: {
     title: 'Sales Analysis Agent',
     desc: 'Revenue trends, top products, forecasts — pulled live from sales data',
@@ -84,7 +83,6 @@ const AGENT_CONFIG: Record<string, {
   },
 };
 
-// Roles handled by the real backend agents vs. the existing mock demo roles
 const REAL_AGENT_ROLES = new Set(['sales', 'design', 'work-management', 'messaging']);
 
 const MOCK_OUTPUTS: Record<string, string> = {
@@ -166,7 +164,130 @@ export default function AIWorkspace({ params }: { params: Promise<{ role: string
   const [copied, setCopied] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
 
+  // Audio Recording States & Refs
+  const [isRecording, setIsRecording] = useState(false);
+  const [language, setLanguage] = useState('en-IN');
+  const [isProcessingAudio, setIsProcessingAudio] = useState(false);
+  
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const leftChannel = useRef<Float32Array[]>([]);
+  const recordingLength = useRef<number>(0);
+
   const placeholder = config.placeholders[0];
+
+  const writeString = (view: DataView, offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const audioContext = new AudioContextClass({ sampleRate: 16000 });
+      audioContextRef.current = audioContext;
+
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      processorRef.current = processor;
+
+      leftChannel.current = [];
+      recordingLength.current = 0;
+
+      processor.onaudioprocess = (e) => {
+        const samples = new Float32Array(e.inputBuffer.getChannelData(0));
+        leftChannel.current.push(samples);
+        recordingLength.current += samples.length;
+      };
+
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+      setIsRecording(true);
+      setError('');
+    } catch (err) {
+      console.error("Microphone access failed:", err);
+      setError("Could not access the microphone. Check browser permissions.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (!processorRef.current || !audioContextRef.current) return;
+
+    setIsRecording(false);
+    setIsProcessingAudio(true);
+
+    processorRef.current.disconnect();
+    audioContextRef.current.close();
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+    }
+
+    const flattened = new Float32Array(recordingLength.current);
+    let offset = 0;
+    for (let i = 0; i < leftChannel.current.length; i++) {
+      flattened.set(leftChannel.current[i], offset);
+      offset += leftChannel.current[i].length;
+    }
+
+    const buffer = new ArrayBuffer(44 + flattened.length * 2);
+    const view = new DataView(buffer);
+
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + flattened.length * 2, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, 16000, true);
+    view.setUint32(28, 16000 * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, flattened.length * 2, true);
+
+    let index = 44;
+    for (let i = 0; i < flattened.length; i++) {
+      const s = Math.max(-1, Math.min(1, flattened[i]));
+      view.setInt16(index, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      index += 2;
+    }
+
+    const audioBlob = new Blob([view], { type: 'audio/wav' });
+    const reader = new FileReader();
+    reader.readAsDataURL(audioBlob);
+    
+    reader.onloadend = async () => {
+      try {
+        const base64String = (reader.result as string).split(',')[1];
+        const res = await fetch('/api/chat/voice-transcribe', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken 
+          },
+          body: JSON.stringify({ audio: base64String, languageCode: language})
+        });
+        
+        const data = await res.json();
+        if (data.transcript) {
+          setTaskInput(data.transcript); 
+        } else if (data.error) {
+          setError(data.error);
+        }
+      } catch (apiErr) {
+        console.error("Backend API Error:", apiErr);
+        setError("Transcription failed to connect to backend.");
+      } finally {
+        setIsProcessingAudio(false);
+      }
+    };
+  };
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -262,7 +383,8 @@ export default function AIWorkspace({ params }: { params: Promise<{ role: string
               <textarea
                 value={taskInput}
                 onChange={e => setTaskInput(e.target.value)}
-                placeholder={placeholder}
+                placeholder={isProcessingAudio ? "Transcribing audio..." : placeholder}
+                disabled={isProcessingAudio || isGenerating}
                 style={{
                   flex: 1, width: '100%', padding: '0.875rem 1rem',
                   borderRadius: '0.5rem', border: '1.5px solid rgba(24,24,26,0.12)',
@@ -274,6 +396,40 @@ export default function AIWorkspace({ params }: { params: Promise<{ role: string
                 onFocus={e => (e.target.style.borderColor = 'var(--accent-blue)')}
                 onBlur={e => (e.target.style.borderColor = 'rgba(24,24,26,0.12)')}
               />
+              
+              {/* Voice Toolbar added right above Generate button */}
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  disabled={isRecording || isProcessingAudio || isGenerating}
+                  style={{
+                    padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid rgba(24,24,26,0.12)', 
+                    fontSize: '0.8125rem', background: '#fff', outline: 'none', cursor: 'pointer'
+                  }}
+                >
+                  <option value="en-IN">EN</option>
+                  <option value="hi-IN">HI</option>
+                  <option value="mr-IN">MR</option>
+                </select>
+                <button
+                  type="button"
+                  disabled={isProcessingAudio || isGenerating}
+                  onClick={isRecording ? stopRecording : startRecording}
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                    padding: '0.625rem 1rem', borderRadius: '0.5rem',
+                    background: isRecording ? '#dc2626' : '#f4f4f5',
+                    color: isRecording ? '#fff' : '#3f3f46',
+                    border: 'none', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 600,
+                    transition: 'all 0.2s', opacity: (isProcessingAudio || isGenerating) ? 0.5 : 1
+                  }}
+                >
+                  {isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  {isRecording ? 'Stop Recording' : (isProcessingAudio ? 'Transcribing...' : 'Voice Input')}
+                </button>
+              </div>
+
               <button
                 type="submit"
                 disabled={isGenerating || !taskInput.trim()}

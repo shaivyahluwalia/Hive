@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAuth } from '@/components/AuthContext';
-import { Search, Mic, ArrowRight, Play, Briefcase, Users, Cpu, ChevronRight } from 'lucide-react';
+import { Search, Mic, ArrowRight, Play, Briefcase, Users, Cpu, ChevronRight, Square, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 const HUMAN_ROLES = [
@@ -40,9 +40,132 @@ const AI_AGENTS = [
     slug: 'hr',
   },
 ];
+
 export default function BusinessDashboard() {
-  const { user } = useAuth();
+  const { user, csrfToken } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+
+  // --- VOICE SEARCH STATES & REFS ---
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceLoading, setVoiceLoading] = useState(false);
+  
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const leftChannel = useRef<Float32Array[]>([]);
+  const recordingLength = useRef<number>(0);
+
+  // --- VOICE SEARCH LOGIC ---
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const audioContext = new AudioContextClass({ sampleRate: 16000 });
+      audioContextRef.current = audioContext;
+
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      processorRef.current = processor;
+
+      leftChannel.current = [];
+      recordingLength.current = 0;
+
+      processor.onaudioprocess = (e) => {
+        const samples = new Float32Array(e.inputBuffer.getChannelData(0));
+        leftChannel.current.push(samples);
+        recordingLength.current += samples.length;
+      };
+
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Microphone access failed:", err);
+      alert("Could not access the microphone. Please check your browser permissions.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (!processorRef.current || !audioContextRef.current) return;
+
+    setIsRecording(false);
+    setVoiceLoading(true);
+
+    processorRef.current.disconnect();
+    audioContextRef.current.close();
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+    }
+
+    const flattened = new Float32Array(recordingLength.current);
+    let offset = 0;
+    for (let i = 0; i < leftChannel.current.length; i++) {
+      flattened.set(leftChannel.current[i], offset);
+      offset += leftChannel.current[i].length;
+    }
+
+    const buffer = new ArrayBuffer(44 + flattened.length * 2);
+    const view = new DataView(buffer);
+
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + flattened.length * 2, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, 16000, true);
+    view.setUint32(28, 16000 * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, flattened.length * 2, true);
+
+    let index = 44;
+    for (let i = 0; i < flattened.length; i++) {
+      const s = Math.max(-1, Math.min(1, flattened[i]));
+      view.setInt16(index, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      index += 2;
+    }
+
+    const audioBlob = new Blob([view], { type: 'audio/wav' });
+    const reader = new FileReader();
+    reader.readAsDataURL(audioBlob);
+    reader.onloadend = async () => {
+      try {
+        const base64String = (reader.result as string).split(',')[1];
+        const res = await fetch('/api/chat/voice-transcribe', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken 
+          },
+          body: JSON.stringify({ 
+            audio: base64String,
+            languageCode: 'en-IN'
+          })
+        });
+        
+        const data = await res.json();
+        if (data.transcript) {
+          setSearchQuery(data.transcript); 
+        }
+      } catch (apiErr) {
+        console.error("Backend API Error:", apiErr);
+      } finally {
+        setVoiceLoading(false);
+      }
+    };
+  };
+
+  const writeString = (view: DataView, offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+
 
   return (
     <div style={{ minHeight: 'calc(100vh - 72px)', background: 'var(--bg-canvas)', padding: '2.5rem 2rem' }}>
@@ -73,16 +196,39 @@ export default function BusinessDashboard() {
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Describe what you need — e.g. 'I need someone to manage Instagram'"
+                placeholder={voiceLoading ? "Transcribing audio..." : isRecording ? "Listening..." : "Describe what you need — e.g. 'I need someone to manage Instagram'"}
                 className="hive-input"
-                style={{ paddingLeft: '2.5rem', paddingRight: '2.75rem', fontSize: '0.9375rem' }}
+                disabled={voiceLoading}
+                style={{ 
+                  paddingLeft: '2.5rem', 
+                  paddingRight: '3rem', 
+                  fontSize: '0.9375rem',
+                  opacity: voiceLoading ? 0.6 : 1,
+                  borderColor: isRecording ? '#ef4444' : 'var(--border-digital)'
+                }}
               />
               <button
                 type="button"
+                onClick={isRecording ? stopRecording : startRecording}
+                disabled={voiceLoading}
                 title="Voice search"
-                style={{ position: 'absolute', right: '0.9rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fg-muted)' }}
+                style={{ 
+                  position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', 
+                  background: isRecording ? '#ef4444' : 'none', 
+                  border: 'none', cursor: 'pointer', 
+                  color: isRecording ? '#fff' : 'var(--fg-muted)',
+                  padding: '0.4rem', borderRadius: '8px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.2s'
+                }}
               >
-                <Mic className="h-4 w-4" />
+                {voiceLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : isRecording ? (
+                  <Square className="h-4 w-4" fill="currentColor" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
               </button>
             </div>
             <button type="submit" className="btn-primary" style={{ flexShrink: 0 }}>
@@ -181,29 +327,34 @@ export default function BusinessDashboard() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-              {AI_AGENTS.map(agent => (
-                <div key={agent.slug} style={{
-                  background: '#fff', border: '1px solid var(--border-digital)',
-                  borderRadius: '0.625rem', padding: '0.875rem 1rem',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem'
-                }}
-                  className="hive-card"
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--fg-primary)' }}>{agent.title}</div>
-                    <div style={{ fontSize: '0.6875rem', color: 'var(--fg-muted)', marginTop: '0.2rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {agent.desc}
+              {AI_AGENTS.map(agent => {
+                const numericPrice = agent.price.replace(/\D/g, '');
+                const paymentUrl = `/payment?agentId=${agent.slug}&name=${encodeURIComponent(agent.title)}&price=${numericPrice}&slug=${agent.slug}`;
+
+                return (
+                  <div key={agent.slug} style={{
+                    background: '#fff', border: '1px solid var(--border-digital)',
+                    borderRadius: '0.625rem', padding: '0.875rem 1rem',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem'
+                  }}
+                    className="hive-card"
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--fg-primary)' }}>{agent.title}</div>
+                      <div style={{ fontSize: '0.6875rem', color: 'var(--fg-muted)', marginTop: '0.2rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {agent.desc}
+                      </div>
+                      <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--accent-blue)', marginTop: '0.25rem' }}>
+                        {agent.price} · Instant
+                      </div>
                     </div>
-                    <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--accent-blue)', marginTop: '0.25rem' }}>
-                      {agent.price} · Instant
-                    </div>
+                    <Link href={paymentUrl} className="btn-blue" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <Play className="h-3.5 w-3.5" fill="currentColor" />
+                      Launch
+                    </Link>
                   </div>
-                  <Link href={`/workspace/ai/${agent.slug}`} className="btn-blue" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Play className="h-3.5 w-3.5" fill="currentColor" />
-                    Launch
-                  </Link>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
 

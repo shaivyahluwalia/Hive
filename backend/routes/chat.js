@@ -94,9 +94,13 @@ Reply to the client as this professional AI Agent. Keep your answer highly profe
           });
 
           if (response.ok) {
-            const data = await response.json();
-            aiResponseContent = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          }
+  const data = await response.json();
+  aiResponseContent = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+} else {
+  // ADD THIS TO SEE THE ERROR IN YOUR TERMINAL:
+  const errorText = await response.text();
+  console.error("❌ Gemini API failed! Status:", response.status, "Details:", errorText);
+}
         } catch (err) {
           console.warn('AI agent reply call failed, falling back to mock reply:', err.message);
         }
@@ -156,6 +160,67 @@ router.post('/assistant', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Chat assistant error:', error);
     res.status(500).json({ error: 'Assistant failed to generate response.' });
+  }
+});
+
+// POST /api/chat/voice-transcribe
+// Handle incoming microphone audio for AI transcription
+// POST /api/chat/voice-transcribe
+// Handle incoming microphone audio and send to Gnani.ai for transcription
+router.post('/voice-transcribe', requireAuth, async (req, res) => {
+  try {
+    const { audio, languageCode } = req.body;
+    
+    if (!audio) {
+      return res.status(400).json({ error: 'Audio data is required.' });
+    }
+
+    const apiKey = process.env.GNANI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'GNANI_API_KEY is missing from backend .env' });
+    }
+
+    // 1. Convert the frontend Base64 string back to a binary Buffer
+    const audioBuffer = Buffer.from(audio, 'base64');
+    
+    // 2. Create a standard File/Blob representation (Requires Node 18+)
+    const audioBlob = new Blob([audioBuffer], { type: 'audio/wav' });
+    
+    // 3. Build the multipart/form-data payload that Gnani requires
+    const formData = new FormData();
+    formData.append('audio_file', audioBlob, 'recording.wav');
+    
+    if (languageCode) {
+      formData.append('language_code', languageCode);
+    }
+
+    // 4. Send to Gnani's REST STT Endpoint
+    const response = await fetch('https://api.vachana.ai/stt/v3', {
+      method: 'POST',
+      headers: {
+        'X-API-Key-ID': apiKey
+        // Note: Do NOT set 'Content-Type' manually here! 
+        // Node's fetch automatically sets the multipart boundary for FormData.
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("Gnani API Error:", response.status, errText);
+      return res.status(response.status).json({ error: 'Transcription API failed' });
+    }
+
+    const data = await response.json();
+    
+    // 5. Safely extract the transcript depending on Gnani's response format
+    const transcriptText = data.transcript || data.full_transcript || (data.results && data.results[0]?.full_transcript) || "Audio processed, but no speech detected.";
+
+    // Send the recognized words back to your Next.js chat!
+    res.json({ transcript: transcriptText });
+  } catch (error) {
+    console.error('Voice transcription error:', error);
+    res.status(500).json({ error: 'Failed to process voice data.' });
   }
 });
 
