@@ -30,6 +30,10 @@ const UserSchema = new mongoose.Schema({
   hourlyPrice: { type: Number, default: 0 },
   availability: { type: String, default: 'Available' },
   avatar: { type: String, default: '' },
+  resumePath: { type: String, default: null },   // uploaded resume file path
+  resumeSkills: { type: String, default: '' },
+  resumeExp: { type: String, default: '' },
+  resumeBio: { type: String, default: '' },
   portfolio: [{ type: String }],
   reviews: [{
     reviewer: { type: String },
@@ -74,15 +78,39 @@ const MessageSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now }
 });
 
+// Payment / Order model
+const PaymentSchema = new mongoose.Schema({
+  businessId:  { type: String, required: true },
+  workerId:    { type: String, required: true },  // user _id OR AI agent name
+  jobId:       { type: String, required: true },
+  amount:      { type: Number, required: true },
+  currency:    { type: String, default: 'INR' },
+  description: { type: String, default: '' },
+  method:      { type: String, default: 'mock' }, // 'stripe' | 'mock'
+  status:      { type: String, enum: ['pending','paid','failed'], default: 'paid' },
+  txnId:       { type: String, default: '' }
+}, { timestamps: true });
+
+// Standalone Review model (worker ratings post-job-completion)
+const ReviewSchema = new mongoose.Schema({
+  jobId:      { type: String, required: true },
+  workerId:   { type: String, required: true },
+  businessId: { type: String, required: true },
+  rating:     { type: Number, required: true, min: 1, max: 5 },
+  comment:    { type: String, default: '' }
+}, { timestamps: true });
+
 // Compile Mongoose models if connected
-let User, Job, AIAgent, Message;
+let User, Job, AIAgent, Message, Payment, Review;
 try {
-  User = mongoose.model('User', UserSchema);
-  Job = mongoose.model('Job', JobSchema);
+  User    = mongoose.model('User',    UserSchema);
+  Job     = mongoose.model('Job',     JobSchema);
   AIAgent = mongoose.model('AIAgent', AIAgentSchema);
   Message = mongoose.model('Message', MessageSchema);
+  Payment = mongoose.model('Payment', PaymentSchema);
+  Review  = mongoose.model('Review',  ReviewSchema);
 } catch (e) {
-  // If connection fails, model compilations might throw, we ignore since fallback handles it
+  // fallback to JSON adapter
 }
 
 // ----------------------------------------------------
@@ -93,7 +121,9 @@ let jsonDb = {
   users: [],
   jobs: [],
   aiAgents: [],
-  messages: []
+  messages: [],
+  payments: [],
+  reviews: []
 };
 
 // Load JSON db from disk
@@ -310,6 +340,86 @@ export const dbService = {
       return await Message.find({ jobId }).sort({ timestamp: 1 }).lean();
     } else {
       return jsonDb.messages.filter(m => m.jobId === jobId);
+    }
+  },
+
+  // --- Payment Operations ---
+  getPayments: async (filter = {}) => {
+    if (dbMode === 'mongodb') {
+      return await Payment.find(filter).sort({ createdAt: -1 }).lean();
+    } else {
+      let p = jsonDb.payments;
+      if (filter.businessId) p = p.filter(x => x.businessId === filter.businessId);
+      if (filter.workerId)   p = p.filter(x => x.workerId   === filter.workerId);
+      if (filter.jobId)      p = p.filter(x => x.jobId      === filter.jobId);
+      return [...p].reverse();
+    }
+  },
+
+  createPayment: async (payObj) => {
+    if (dbMode === 'mongodb') {
+      const p = new Payment(payObj);
+      return (await p.save()).toObject();
+    } else {
+      const p = {
+        _id: generateId(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        currency: 'INR',
+        method: 'mock',
+        status: 'paid',
+        txnId: 'TXN_' + generateId().toUpperCase().slice(0, 10),
+        ...payObj
+      };
+      jsonDb.payments.push(p);
+      saveJsonDb();
+      return p;
+    }
+  },
+
+  // --- Review Operations ---
+  getReviews: async (filter = {}) => {
+    if (dbMode === 'mongodb') {
+      return await Review.find(filter).sort({ createdAt: -1 }).lean();
+    } else {
+      let r = jsonDb.reviews;
+      if (filter.workerId)   r = r.filter(x => x.workerId   === filter.workerId);
+      if (filter.businessId) r = r.filter(x => x.businessId === filter.businessId);
+      if (filter.jobId)      r = r.filter(x => x.jobId      === filter.jobId);
+      return r;
+    }
+  },
+
+  createReview: async (reviewObj) => {
+    if (dbMode === 'mongodb') {
+      const r = new Review(reviewObj);
+      return (await r.save()).toObject();
+    } else {
+      const r = {
+        _id: generateId(),
+        createdAt: new Date().toISOString(),
+        ...reviewObj
+      };
+      jsonDb.reviews.push(r);
+      saveJsonDb();
+      // Also push into the worker's embedded reviews array
+      const workerIdx = jsonDb.users.findIndex(u => u._id === reviewObj.workerId);
+      if (workerIdx !== -1) {
+        if (!jsonDb.users[workerIdx].reviews) jsonDb.users[workerIdx].reviews = [];
+        jsonDb.users[workerIdx].reviews.push({
+          reviewer: reviewObj.reviewer || 'Business',
+          rating: reviewObj.rating,
+          comment: reviewObj.comment || '',
+          date: new Date().toISOString()
+        });
+        // Recompute average rating
+        const allRatings = jsonDb.users[workerIdx].reviews.map(rv => rv.rating);
+        jsonDb.users[workerIdx].rating = parseFloat(
+          (allRatings.reduce((a, b) => a + b, 0) / allRatings.length).toFixed(2)
+        );
+        saveJsonDb();
+      }
+      return r;
     }
   },
 
