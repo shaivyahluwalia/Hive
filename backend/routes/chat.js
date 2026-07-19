@@ -1,7 +1,9 @@
 import express from 'express';
 import { dbService } from '../models/dbService.js';
 import { requireAuth } from '../middleware/auth.js';
-import { getAssistantResponse } from '../services/aiService.js';
+// RESTORED: Missing Gnani Voice Imports
+import { getAssistantResponse, speechToTextGnani, textToSpeechGnani } from '../services/aiService.js';
+import { MemoryClient } from 'mem0ai';
 
 const router = express.Router();
 
@@ -147,15 +149,116 @@ Reply to the client as this professional AI Agent. Keep your answer highly profe
 router.post('/assistant', requireAuth, async (req, res) => {
   try {
     const { message } = req.body;
+    
+    // FIX 1: Strict stringification of MongoDB ObjectID variables
+    const userId = req.user.id?.toString ? req.user.id.toString() : String(req.user.id);
+
     if (!message) {
       return res.status(400).json({ error: 'Message content is required.' });
     }
 
-    const aiResponse = await getAssistantResponse(message);
+    // Lazy load the Mem0 client only when an API key exists
+    let mem0 = null;
+    if (process.env.MEM0_API_KEY) {
+      mem0 = new MemoryClient({ apiKey: process.env.MEM0_API_KEY });
+    }
+
+    // 1. MEM0 RECALL: Fetch past memories for this specific user
+    let memoryContext = '';
+    if (mem0) {
+      try {
+        // FIX 2: Dynamic payload parameter wrapping using filters block configuration
+        const pastMemories = await mem0.search(message, { filters: { user_id: userId } });
+        if (pastMemories && pastMemories.length > 0) {
+          memoryContext = pastMemories.map(m => m.memory).join(". ");
+        }
+      } catch (memError) {
+        console.warn("Mem0 search failed, bypassing memory:", memError.message);
+      }
+    }
+
+    // 2. ENHANCE PROMPT: Combine previous context with the new message
+    const enrichedMessage = memoryContext 
+      ? `System Note: Here is what you know about this user's preferences from past chats: ${memoryContext}\n\nUser's new message: ${message}`
+      : message;
+
+    // 3. GENERATE RESPONSE: Send the enriched context to your AI service
+    const aiResponse = await getAssistantResponse(enrichedMessage);
+
+    // 4. MEM0 STORE: Save the interaction to extract new facts
+    if (mem0) {
+      try {
+        const assistantReplyText = typeof aiResponse === 'string' ? aiResponse : (aiResponse.reply || JSON.stringify(aiResponse));
+        
+        const messagesToStore = [
+          { role: "user", content: message },
+          { role: "assistant", content: assistantReplyText }
+        ];
+        
+        await mem0.add(messagesToStore, { user_id: userId });
+      } catch (memError) {
+        console.warn("Mem0 store failed:", memError.message);
+      }
+    }
+
     res.json(aiResponse);
   } catch (error) {
     console.error('Chat assistant error:', error);
     res.status(500).json({ error: 'Assistant failed to generate response.' });
+  }
+});
+
+// RESTORED: Missing Voice Endpoints below
+
+// POST /api/chat/voice-transcribe
+router.post('/voice-transcribe', requireAuth, async (req, res) => {
+  try {
+    if (!req.body) return res.status(400).json({ error: 'JSON body parser is missing.' });
+
+    // Extract both audio and languageCode
+    const { audio, languageCode } = req.body; 
+    
+    if (!audio) return res.status(400).json({ error: 'Audio payload parameter block is missing.' });
+
+    const audioBuffer = Buffer.from(audio, 'base64');
+
+    // Pass the languageCode to the Gnani function
+    const transcriptText = await speechToTextGnani(audioBuffer, 'audio/wav', languageCode || 'en-IN');
+    
+    console.log(`Transcription captured (${languageCode}):`, transcriptText);
+    
+    res.json({ success: true, transcript: transcriptText });
+  } catch (error) {
+    console.error('System voice translation runtime error:', error);
+    res.status(500).json({ error: 'Voice processing controller breakdown encountered.' });
+  }
+});
+
+// POST /api/chat/voice-synthesize
+router.post('/voice-synthesize', requireAuth, async (req, res) => {
+  try {
+    const { text, agentProfile } = req.body;
+    
+    if (!text) {
+      return res.status(400).json({ error: 'Text prompt parameters are required.' });
+    }
+
+    // Map your Hive worker profile categories to proper available voice profiles
+    let selectedVoice = 'Kaveri'; // Default
+    if (agentProfile) {
+      if (agentProfile.includes('Writer') || agentProfile.includes('Social')) selectedVoice = 'Kaveri';
+      if (agentProfile.includes('Designer')) selectedVoice = 'Shubhra';
+      if (agentProfile.includes('Data') || agentProfile.includes('Analyst')) selectedVoice = 'Pranav';
+    }
+
+    const audioBuffer = await textToSpeechGnani(text, selectedVoice);
+
+    res.setHeader('Content-Type', 'audio/wav');
+    res.setHeader('Content-Disposition', 'attachment; filename="agent_voice.wav"');
+    res.send(audioBuffer);
+  } catch (error) {
+    console.error('System voice generation runtime error:', error);
+    res.status(500).json({ error: 'Audio composition task engine track failed.' });
   }
 });
 

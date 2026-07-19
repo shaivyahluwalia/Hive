@@ -8,7 +8,7 @@ export async function predictWorkerType(title, description, category, budget) {
 
   if (apiKey) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
       const prompt = `Analyze the following job details and determine:
 1. The best worker type (strictly return one of: "Human Worker", "AI Employee", or "Human + AI Collaboration").
 2. A confidence score (a number between 0.0 and 1.0).
@@ -73,87 +73,83 @@ You must return ONLY a raw JSON object in the following format (no markdown code
 }
 
 /**
- * Handles predictions for general assistant chats.
+ * Handles predictions for general assistant chats using Gemini and Mem0 context.
+ */
+/**
+ * Handles predictions for general assistant chats using Gemini and Mem0 context.
  */
 export async function getAssistantResponse(message) {
   const apiKey = process.env.GEMINI_API_KEY;
-
-  if (apiKey) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-      const prompt = `You are Hive, a smart AI assistant for a talent platform that offers both human freelancers and AI employees.
-The user is asking: "${message}"
-
-Recommend whether they should hire an "AI Employee", a "Human Worker", or use "Human + AI Collaboration" for this request.
-Suggest appropriate specific profiles (e.g. Graphic Designer AI, Content Writer AI, Data Analyst AI, Coding Assistant AI, Customer Support AI) or freelancer roles.
-
-Format your response as a JSON object:
-{
-  "recommendation": "Human Worker" | "AI Employee" | "Human + AI Collaboration",
-  "reasoning": "A concise explanation (1-2 sentences).",
-  "suggestions": ["Profile/Agent Name 1", "Profile/Agent Name 2"]
-}
-Only output the JSON object without markdown formatting.`;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{ text: prompt }]
-          }]
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-        return JSON.parse(cleanJson);
-      }
-    } catch (err) {
-      console.warn('Gemini Assistant API failed, using keyword fallback:', err.message);
-    }
-  }
-
-  // Text-based fallback for assistant chat
-  const msg = message.toLowerCase();
-  if (msg.includes('logo') || msg.includes('design') || msg.includes('draw') || msg.includes('graphic')) {
-    return {
-      recommendation: 'AI Employee',
-      reasoning: 'Graphic Designer AI is perfect for drafting quick logos, vector graphics, and branding assets instantly. For full custom branding guidelines, a Hybrid approach with a Human Designer is recommended.',
-      suggestions: ['Graphic Designer AI', 'Human Designer']
+  
+  if (!apiKey) {
+    console.warn("No Gemini API key found in .env!");
+    return { 
+      recommendation: 'Human + AI Collaboration',
+      reasoning: "I am currently in offline mode. Please add a Gemini API key.",
+      suggestions: []
     };
   }
-  if (msg.includes('code') || msg.includes('website') || msg.includes('program') || msg.includes('app') || msg.includes('developer')) {
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
+    
+    const prompt = `You are Hive, a smart AI assistant for a talent platform that offers both human freelancers and AI employees.
+Analyze the user's request and past memory context to recommend whether they should hire an "AI Employee", a "Human Worker", or use "Human + AI Collaboration".
+
+Here is the prompt and memory context:
+${message}
+
+You must return ONLY a raw JSON object in the exact format below (no markdown code blocks, no backticks, no text outside the object structure):
+{
+  "recommendation": "Human Worker" or "AI Employee" or "Human + AI Collaboration",
+  "reasoning": "A highly specific, custom response to their message utilizing what you know about them (1-2 sentences).",
+  "suggestions": ["Profile or Agent Name 1", "Profile or Agent Name 2"]
+}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Google API Status ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    // Because of responseMimeType, we no longer need regex to clean markdown!
+    const parsed = JSON.parse(rawText.trim());
+    
+    if (parsed.recommendation && parsed.reasoning) {
+      return {
+        recommendation: parsed.recommendation,
+        reasoning: parsed.reasoning,
+        suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : []
+      };
+    }
+    
+    // NEW ERROR MESSAGE
+    throw new Error("Missing required properties in Gemini output");
+  } catch (error) {
+    console.error("\n========================================");
+    console.error("🚨 DEBUG: GEMINI ASSISTANT ERROR CRASH");
+    console.error(error.message);
+    console.error("========================================\n");
+    
     return {
       recommendation: 'Human + AI Collaboration',
-      reasoning: 'Developing custom software benefits immensely from human logic combined with AI generation speed. A human developer using a Coding Assistant AI will write cleaner code faster.',
-      suggestions: ['Coding Assistant AI', 'Freelance Web Developer']
+      reasoning: 'For general complex tasks, we recommend a combined approach: a human coordinator managing data processing with the support of AI analytics tools.',
+      suggestions: ['Data Analyst AI', 'Business Freelancer']
     };
   }
-  if (msg.includes('write') || msg.includes('caption') || msg.includes('instagram') || msg.includes('blog') || msg.includes('article')) {
-    return {
-      recommendation: 'AI Employee',
-      reasoning: 'Content Writer AI and Social Media AI can draft blogs, optimize SEO keywords, and generate catchy captions instantly at low cost.',
-      suggestions: ['Content Writer AI', 'Social Media AI']
-    };
-  }
-  if (msg.includes('wedding') || msg.includes('photo') || msg.includes('plumb') || msg.includes('clean') || msg.includes('physical')) {
-    return {
-      recommendation: 'Human Worker',
-      reasoning: 'Physical or location-dependent roles require human dexterity, physical coordination, and emotional presence.',
-      suggestions: ['Freelance Photographer', 'Professional Service Handyman']
-    };
-  }
-
-  return {
-    recommendation: 'Human + AI Collaboration',
-    reasoning: 'For general complex tasks, we recommend a combined approach: a human coordinator managing data processing with the support of AI analytics tools.',
-    suggestions: ['Data Analyst AI', 'Business Freelancer']
-  };
 }
 
 function localPredict(title, description, category, budget) {
