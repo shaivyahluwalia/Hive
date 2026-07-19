@@ -42,28 +42,28 @@ const REAL_AGENTS = [
     name: 'Sales Analysis Agent',
     category: 'Live Agents',
     description: 'Pulls real sales data, revenue trends, and top products on demand.',
-    price: 0, speed: 'Instant', accuracy: 'Live data', rating: 5.0,
+    price: 200, speed: 'Instant', accuracy: 'Live data', rating: 5.0,
   },
   {
     _id: 'real-design', slug: 'design',
     name: 'Design Agent',
     category: 'Live Agents',
     description: 'Fetches brand guidelines, colors, fonts, and design assets.',
-    price: 0, speed: 'Instant', accuracy: 'Live data', rating: 5.0,
+    price: 150, speed: 'Instant', accuracy: 'Live data', rating: 5.0,
   },
   {
     _id: 'real-work-management', slug: 'work-management',
     name: 'Work Management Agent',
     category: 'Live Agents',
     description: 'Lists tasks, deadlines, and creates new tasks on request.',
-    price: 0, speed: 'Instant', accuracy: 'Live data', rating: 5.0,
+    price: 170, speed: 'Instant', accuracy: 'Live data', rating: 5.0,
   },
   {
     _id: 'real-messaging', slug: 'messaging',
     name: 'Messaging Agent',
     category: 'Live Agents',
     description: 'Drafts and sends real Slack messages, with confirmation before sending.',
-    price: 0, speed: 'Instant', accuracy: 'Live data', rating: 5.0,
+    price: 210, speed: 'Instant', accuracy: 'Live data', rating: 5.0,
   },
 ];
 const REAL_SLUGS = new Set(REAL_AGENTS.map(a => a.slug));
@@ -72,7 +72,7 @@ const CATEGORIES = ['All', 'Live Agents', 'Marketing', 'Analytics', 'Documentati
 
 export default function AgentsMarketplace() {
   const { user, csrfToken } = useAuth();
-  const [agents, setAgents] = useState<typeof FALLBACK_AGENTS>([]);
+  const [agents, setAgents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [deployedIds, setDeployedIds] = useState<string[]>([]);
   const [search, setSearch] = useState('');
@@ -352,7 +352,13 @@ export default function AgentsMarketplace() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: '1.5rem' }}>
             {filtered.map(agent => {
               const cat = CATEGORY_COLORS[agent.category] || { bg: 'rgba(26,127,212,0.08)', text: 'var(--accent-blue)' };
-              const deployed = deployedIds.includes(agent._id);
+              const deployed = deployedIds.includes(agent._id) || agent.isDeployed === true || agent.paymentStatus === 'completed';
+              
+              // Determine target deployment path (free live agents vs commercial marketplace agents)
+              const dynamicDestinationUrl = (agent.price === 0 || deployed)
+              ? `/workspace/ai/${agent.slug || 'marketing'}`
+              : `/payment?agentId=${agent._id}&name=${encodeURIComponent(agent.name)}&price=${agent.price}&slug=${agent.slug || 'marketing'}`;
+
               return (
                 <div key={agent._id} className="hive-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
 
@@ -411,7 +417,7 @@ export default function AgentsMarketplace() {
 
                     {user && user.role === 'Business' ? (
                       <Link
-                        href={`/workspace/ai/${(agent as any).slug || 'marketing'}`}
+                        href={dynamicDestinationUrl}
                         onClick={() => setDeployedIds(p => [...p, agent._id])}
                         className="btn-blue"
                         style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.8125rem' }}

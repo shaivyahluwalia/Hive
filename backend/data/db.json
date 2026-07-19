@@ -164,7 +164,10 @@
       "price": 15,
       "speed": "Super Fast",
       "accuracy": "95%",
-      "icon": "FileText"
+      "icon": "FileText",
+      "rolePath": "writing",
+      "paymentStatus": "pending",
+      "isDeployed": false
     },
     {
       "_id": "r7yyrpvcz6rtjdz1y97n",
@@ -178,7 +181,10 @@
       "price": 29,
       "speed": "Fast",
       "accuracy": "90%",
-      "icon": "Palette"
+      "icon": "Palette",
+      "rolePath": "design",
+      "paymentStatus": "pending",
+      "isDeployed": false
     },
     {
       "_id": "n4w5e05qwhj4m6m602gq8m",
@@ -192,7 +198,10 @@
       "price": 35,
       "speed": "Super Fast",
       "accuracy": "99%",
-      "icon": "BarChart"
+      "icon": "analytics",
+      "rolePath": "analytics",
+      "paymentStatus": "pending",
+      "isDeployed": false
     },
     {
       "_id": "tlfn8rbk7y1eeev8wtqdz",
@@ -206,7 +215,10 @@
       "price": 19,
       "speed": "Instant",
       "accuracy": "96%",
-      "icon": "MessageSquare"
+      "icon": "MessageSquare",
+      "rolePath": "support",
+      "paymentStatus": "pending",
+      "isDeployed": false
     },
     {
       "_id": "9d3hnwac10baem6zmjwyme",
@@ -220,7 +232,10 @@
       "price": 9,
       "speed": "Instant",
       "accuracy": "98%",
-      "icon": "Briefcase"
+      "icon": "Briefcase",
+      "rolePath": "resume",
+      "paymentStatus": "pending",
+      "isDeployed": false
     },
     {
       "_id": "7mu2kyqarvjtq5elqngil",
@@ -234,7 +249,10 @@
       "price": 49,
       "speed": "Super Fast",
       "accuracy": "92%",
-      "icon": "Code"
+      "icon": "Code",
+      "rolePath": "development",
+      "paymentStatus": "pending",
+      "isDeployed": false
     },
     {
       "_id": "kphgsf0mvqi38m8cjved",
@@ -248,7 +266,10 @@
       "price": 25,
       "speed": "Fast",
       "accuracy": "94%",
-      "icon": "Share2"
+      "icon": "Share2",
+      "rolePath": "marketing",
+      "paymentStatus": "pending",
+      "isDeployed": false
     }
   ],
   "messages": []

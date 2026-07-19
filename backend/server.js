@@ -14,6 +14,7 @@ import marketplaceRouter from './routes/marketplace.js';
 import chatRouter from './routes/chat.js';
 import adminRouter from './routes/admin.js';
 import agentsRouter from './routes/agents.js'; 
+import paymentRouter from './routes/payment.js';
 
 dotenv.config();
 
@@ -64,6 +65,7 @@ app.use('/api/marketplace', csrfProtection, marketplaceRouter);
 app.use('/api/chat', csrfProtection, chatRouter);
 app.use('/api/admin', csrfProtection, adminRouter);
 app.use('/api/agents', csrfProtection, agentsRouter);
+app.use('/api/payment', paymentRouter);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
